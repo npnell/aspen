@@ -11,7 +11,7 @@
 class Shader
 {
 public:
-	unsigned ID;
+	unsigned int ID;
 
 	Shader(const char* compute_path) {
 		std::string compute_code;
@@ -22,6 +22,7 @@ public:
 			c_shader_file.open(compute_path);
 			std::stringstream c_shaderstream;
 			c_shaderstream << c_shader_file.rdbuf();
+			c_shader_file.close();
 
 			compute_code = c_shaderstream.str();
 		}

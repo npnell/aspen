@@ -8,16 +8,6 @@
 const double pi{ 3.1415926535897932384626433832795 };
 const double twopi{ 6.283185307179586476925286766559 };
 
-unsigned int reverse(unsigned int x, unsigned int m)
-{
-	int _x = 0;
-	while (m--) {
-		_x = (x & 0x1) | (_x << 1);
-		x = x >> 1;
-	}
-	return _x;
-}
-
 void butterfly(int n, int q, complex* x) // Butterfly operation
 // n : sequence length
 // q : block start point
@@ -39,17 +29,22 @@ void butterfly(int n, int q, complex* x) // Butterfly operation
 	}
 }
 
+void bit_reverse(int n, complex* x) // Bitreversal operation
+// n : squence length
+// x : input/output sequence
+{
+	for (int i = 0, j = 1; j < n - 1; j++) {
+		for (int k = n >> 1; k > (i ^= k); k >>= 1);
+		if (i < j) std::swap(x[i], x[j]);
+	}
+}
+
 void fft(int n, complex* x) // Fourier transform
 // n : sequence length
 // x : input/output sequence
 {
-	int m = static_cast<int>(log2(n));
-	complex* _x = new complex[n];
 	butterfly(n, 0, x);
-	for (int i = 0; i < n; ++i)
-		_x[reverse(i, m)] = x[i];
-	std::copy(_x, &_x[n] + 1, x);
-	delete [] (_x);
+	bit_reverse(n, x);
 }
 
 #endif // ! FFT_H

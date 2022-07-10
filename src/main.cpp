@@ -6,51 +6,67 @@
 #include "shader.h"
 #include "fft.h"
 #include "utils.h"
+#include "compute.h"
 
 const unsigned int WINDOW_WIDTH = 800;
 const unsigned int WINDOW_HEIGHT = 600;
 const char* WINDOW_TITLE = "FFT";
 
-static const struct {
-	GLuint num_groups_x;
-	GLuint num_groups_y;
-	GLuint num_groups_z;
-} dispatch_params = { 16, 16, 1 };
+const GLuint num_groups_x = 10;
+const GLuint num_groups_y = 1;
+const GLuint num_groups_z = 1;
 
 int initialize()
 {
 	WindowClass window(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
-
 	Shader shader("shaders/compute.glsl");
-
-	shader.use();
-
-	unsigned int dispatch_buffer;
-	glGenBuffers(1, &dispatch_buffer);
-
-	glBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, dispatch_buffer);
-	glBufferData(GL_DISPATCH_INDIRECT_BUFFER, sizeof(dispatch_params), &dispatch_params, GL_STATIC_DRAW);
-
-	glDispatchComputeIndirect(0);
 
 	std::vector<char> buffer;
 	if (read_file(buffer, "input.txt")) {
 		exit(EXIT_FAILURE);
 	}
-
 	auto tokens = tokenize_buffer(buffer);
+	unsigned int n = static_cast<unsigned int>(tokens.size());
 
-	unsigned int N = static_cast<unsigned int>(tokens.size());
-	complex* x = new complex[N];
-	for (unsigned int i = 0; i < N; ++i)
+	complex* x = new complex[n];
+	for (unsigned int i = 0; i < n; ++i)
 		x[i].re = tokens[i];
 
-	fft(N, x);
+	fft(n, x);
 
-	for (unsigned int i = 0; i < N; ++i)
+	for (unsigned int i = 0; i < n; ++i)
 		std::cout << std::fixed << std::setprecision(2) << x[i].re << " + " << x[i].im << "j\n";
 
-	delete [] (x);
+	delete[](x);
+
+	Compute compute(num_groups_x, num_groups_y, num_groups_z);
+
+	// Texture
+	unsigned int out_tex;
+	glGenTextures(1, &out_tex);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, out_tex);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	
+	float values[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	compute.set_values(values);
+	glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
+
+	shader.use();
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, out_tex);
+	compute.dispatch();
+	compute.wait();
+
+	auto data = compute.get_values();
+
+	for (auto d : data)
+		std::cout << d << " ";
+	std::cout << std::endl;
+
+	glDeleteProgram(shader.ID);
 	
 	glfwTerminate();
 	return EXIT_SUCCESS;
