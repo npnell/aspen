@@ -4,7 +4,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <cmath>
 #include <string>
 
 std::string extract_token(const std::vector<char>::const_iterator& lexeme_begin,
@@ -35,22 +34,39 @@ int read_file(std::vector<char>& buffer, std::string filename)
     }
 }
 
-std::vector<double> tokenize_buffer(const std::vector<char>& buffer)
+int write_file(const std::string& data, std::string filename)
+{
+    std::ofstream outstream(filename, std::ios::out);
+    if (outstream) {
+        outstream << data.data();
+        if (!outstream) {
+            std::cerr << "failed to write file: " + filename + "\n";
+            return EXIT_FAILURE;
+        }
+        return EXIT_SUCCESS;
+    }
+    else {
+        std::cerr << "failed to open file: " + filename + "\n";
+        return EXIT_FAILURE;
+    }
+}
+
+std::vector<float> tokenize_buffer(const std::vector<char>& buffer)
 {
     std::vector<char>::const_iterator lexeme_begin = begin(buffer);
     std::vector<char>::const_iterator forward = begin(buffer);
-    std::vector<double> tokens;
+    std::vector<float> tokens;
 
     if (begin(buffer) != end(buffer)) {
         while (forward != end(buffer)) {
             if (*forward == ' ' || *forward == '\n' || *forward == '\0' || *forward == EOF) {
-                tokens.push_back(std::stod(extract_token(lexeme_begin, forward)));
+                tokens.push_back(std::stof(extract_token(lexeme_begin, forward)));
                 lexeme_begin = forward + 1;
             }
             ++forward;
         }
         if (forward != lexeme_begin)
-            tokens.push_back(std::stod(extract_token(lexeme_begin, forward)));
+            tokens.push_back(std::stof(extract_token(lexeme_begin, forward)));
     }
     return tokens;
 }

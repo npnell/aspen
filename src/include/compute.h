@@ -5,25 +5,22 @@
 
 #include <vector>
 
-class Compute
-{
+class Compute {
 public:
-	const GLuint num_groups_x;
-	const GLuint num_groups_y;
-	const GLuint num_groups_z;
+	const unsigned int num_groups_x;
 
-	Compute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z)
-		: num_groups_x(num_groups_x), num_groups_y(num_groups_y), num_groups_z(num_groups_z) { }
+	Compute(unsigned int num_groups_x)
+		: num_groups_x(num_groups_x) { }
 
 	inline void dispatch();
 	inline void wait();
-	inline void set_values(float*);
-	std::vector<float> get_values();
+	inline void set_values(unsigned int, float*);
+	std::vector<float> get_values(GLenum, unsigned int);
 };
 
 inline void Compute::dispatch()
 {
-	glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
+	glDispatchCompute(num_groups_x, 1, 1);
 }
 
 inline void Compute::wait()
@@ -31,16 +28,15 @@ inline void Compute::wait()
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 }
 
-inline void Compute::set_values(float* values)
+inline void Compute::set_values(unsigned int buffer_length, float* data)
 {
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, num_groups_x, num_groups_y, 0, GL_RED, GL_FLOAT, values);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * buffer_length, data, GL_STATIC_COPY);
 }
 
-std::vector<float> Compute::get_values()
+std::vector<float> Compute::get_values(GLenum target, unsigned int buffer_length)
 {
-	unsigned int collection_size = num_groups_x * num_groups_y;
-	std::vector<float> compute_data(collection_size);
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, compute_data.data());
+	std::vector<float> compute_data(buffer_length);
+	glGetBufferSubData(target, 0, sizeof(float) * buffer_length, compute_data.data());
 	return compute_data;
 }
 

@@ -47,6 +47,7 @@ public:
 	}
 
 	inline void use() const;
+	inline void del() const;
 
 	inline void set_bool(const std::string& name, bool value) const;
 
@@ -58,24 +59,27 @@ private:
 	void check_compile_errors(GLuint shader, std::string type);
 };
 
-// activate the shader
-// ------------------------------------------------------------------------
 inline void Shader::use() const
 {
     glUseProgram(ID);
 }
+
+inline void Shader::del() const {
+	glDeleteProgram(ID);
+}
+
 // utility uniform functions
 // ------------------------------------------------------------------------
 inline void Shader::set_bool(const std::string& name, bool value) const
 {
     glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
 }
-// ------------------------------------------------------------------------
+
 inline void Shader::set_int(const std::string& name, int value) const
 {
     glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
 }
-// ------------------------------------------------------------------------
+
 inline void Shader::set_float(const std::string& name, float value) const
 {
     glUniform1f(glGetUniformLocation(ID, name.c_str()), value);

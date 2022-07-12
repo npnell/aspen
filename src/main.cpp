@@ -1,78 +1,69 @@
-#include <string>
-#include <thread>
 #include <iomanip>
 
 #include "window.h"
 #include "shader.h"
-#include "fft.h"
 #include "utils.h"
 #include "compute.h"
+#include "complex.h"
 
 const unsigned int WINDOW_WIDTH = 800;
 const unsigned int WINDOW_HEIGHT = 600;
 const char* WINDOW_TITLE = "FFT";
 
-const GLuint num_groups_x = 10;
-const GLuint num_groups_y = 1;
-const GLuint num_groups_z = 1;
+const unsigned int num_groups_x = 8;
+const unsigned int buffer_length = 8;
+
+void bit_reverse(unsigned int n, complex* x)
+{
+	for (unsigned int i = 0, j = 1; j < n - 1; j++) {
+		for (unsigned int k = n >> 1; k > (i ^= k); k >>= 1);
+		if (i < j) std::swap(x[i], x[j]);
+	}
+}
 
 int initialize()
 {
 	WindowClass window(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
 	Shader shader("shaders/compute.glsl");
+	Compute compute(num_groups_x);
 
 	std::vector<char> buffer;
 	if (read_file(buffer, "input.txt")) {
 		exit(EXIT_FAILURE);
 	}
 	auto tokens = tokenize_buffer(buffer);
-	unsigned int n = static_cast<unsigned int>(tokens.size());
-
-	complex* x = new complex[n];
-	for (unsigned int i = 0; i < n; ++i)
-		x[i].re = tokens[i];
-
-	fft(n, x);
-
-	for (unsigned int i = 0; i < n; ++i)
-		std::cout << std::fixed << std::setprecision(2) << x[i].re << " + " << x[i].im << "j\n";
-
-	delete[](x);
-
-	Compute compute(num_groups_x, num_groups_y, num_groups_z);
-
-	// Texture
-	unsigned int out_tex;
-	glGenTextures(1, &out_tex);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, out_tex);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	
-	float values[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-	compute.set_values(values);
-	glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32F);
+	complex* x = (complex*)tokens.data();
 
 	shader.use();
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, out_tex);
+
+	unsigned int ssbo;
+	glGenBuffers(1, &ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	compute.set_values(buffer_length * 2, (float *)x);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo);
+
 	compute.dispatch();
 	compute.wait();
-
-	auto data = compute.get_values();
-
-	for (auto d : data)
-		std::cout << d << " ";
-	std::cout << std::endl;
-
-	glDeleteProgram(shader.ID);
+	memcpy(x, compute.get_values(GL_SHADER_STORAGE_BUFFER, buffer_length * 2).data(), sizeof(float) * buffer_length * 2);
 	
+	bit_reverse(buffer_length, x);
+
+	std::stringstream output_stream;
+	for (unsigned int i = 0; i < buffer_length; ++i)
+		output_stream << std::fixed << std::setprecision(2) << x[i].re << " + " << x[i].im << "j\n";
+	
+	if (write_file(output_stream.str(), "output.txt")) {
+		exit(EXIT_FAILURE);
+	}
+
+	shader.del();
+
 	glfwTerminate();
 	return EXIT_SUCCESS;
 }
 
 int main(int argc, char* argv[])
 {
-	initialize();
+	if (!initialize())
+		std::cout << "done.\n";
 }
